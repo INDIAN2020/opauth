@@ -407,20 +407,34 @@ class OpauthStrategy {
 	 * @return string Content resulted from request, without headers
 	 */
 	public static function httpRequest($url, $options = null, &$responseHeaders = null) {
-		$context = null;
-		if (!empty($options) && is_array($options)) {
-			if (empty($options['http']['header'])) {
-				$options['http']['header'] = "User-Agent: opauth";
-			} else {
-				$options['http']['header'] .= "\r\nUser-Agent: opauth";
-			}
-		} else {
-			$options = array('http' => array('header' => 'User-Agent: opauth'));
-		}
-		$context = stream_context_create($options);
 
-		$content = file_get_contents($url, false, $context);
-		$responseHeaders = implode("\r\n", $http_response_header);
+		$wp_http_args = array(
+			'method'      => !empty($options['http']['method']) ? $options['http']['method'] : 'GET',
+			'timeout'     => MINUTE_IN_SECONDS,
+			'redirection' => 0,
+			'httpversion' => '1.0',
+			'sslverify'   => false,
+			'blocking'    => true,
+			'body'        => !empty($options['http']['content']) ? $options['http']['content'] : '',
+			'headers'     => !empty($options['http']['header']) ? $options['http']['header'] : array(),
+			'cookies'     => array(),
+		);
+
+		// perform request
+		$response = wp_remote_request($url, $wp_http_args);
+
+		// immediately get response headers
+		$responseHeaders = wp_remote_retrieve_body($response);
+
+		if (is_wp_error($response)) {
+
+			// network timeout, etc
+			$content = $response->get_error_message();
+
+		} else {
+
+			$content = wp_remote_retrieve_body($response);
+		}
 
 		return $content;
 	}
